@@ -24,6 +24,7 @@ import kafka.metrics.KafkaMetricsGroup
 import kafka.server.{LogOffsetMetadata, FetchDataInfo, BrokerTopicStats}
 
 import java.io.{IOException, File}
+import java.util
 import java.util.concurrent.{ConcurrentNavigableMap, ConcurrentSkipListMap}
 import java.util.concurrent.atomic._
 import java.text.NumberFormat
@@ -98,6 +99,12 @@ class Log(val dir: File,
       def value = size
     },
     tags)
+
+  newGauge(name + "-" + "LogSegments",
+    new Gauge[util.ArrayList[String]] { def value = segmentsInfo })
+
+  newGauge(name + "-" + "Directory",
+    new Gauge[String] { def value = dir.getAbsolutePath })
 
   /** The name of this log */
   def name  = dir.getName()
@@ -253,6 +260,19 @@ class Log(val dir: File,
    * Take care! this is an O(n) operation.
    */
   def numberOfSegments: Int = segments.size
+
+  /**
+    * Returns compiled information about segments
+    */
+  def segmentsInfo: util.ArrayList[String] = {
+    val list = new util.ArrayList[String]()
+    logSegments.foreach(
+      seg => list.add("baseOffset=%s, created=%s, logSize=%s, indexSize=%s".format(
+        seg.baseOffset, seg.created, seg.size, seg.index.sizeInBytes()
+      ))
+    )
+    list
+  }
 
   /**
    * Close this log
